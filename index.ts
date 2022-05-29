@@ -75,37 +75,33 @@ const events: EventEmitter = new EventEmitter();
           to.toLowerCase() === element.exchangeAddress.toLowerCase();
 
         if (!isFeeCollection && isBuy && element.buyAmount > 0) {
-          console.log('--- Buy ---');
-          console.log(transactionHash);
-          console.log(parseInt(value, 10) / 10 ** 18);
-
-          events.emit('whale-buy', {
-            hash: transactionHash,
-            amount: parseInt(value, 10) / 10 ** element.decimals,
-            explorer: element.explorer,
-            getCurrentPrice: element.getCurrentPrice,
-            name: element.name,
-            type: 'buy',
-            ...discordData,
-          } as TransactionEvent);
+          if (parseInt(value, 10) / 10 ** element.decimals >= element.buyAmount) {
+            events.emit('whale-buy', {
+              hash: transactionHash,
+              amount: parseInt(value, 10) / 10 ** element.decimals,
+              explorer: element.explorer,
+              getCurrentPrice: element.getCurrentPrice,
+              name: element.name,
+              type: 'buy',
+              ...discordData,
+            } as TransactionEvent);
+          }
 
           return;
         }
 
         if (!isFeeCollection && isSell && element.sellAmount > 0) {
-          console.log('--- Sell ---');
-          console.log(transactionHash);
-          console.log(parseInt(value, 10) / 10 ** 18);
-
-          events.emit('whale-sell', {
-            hash: transactionHash,
-            amount: parseInt(value, 10) / 10 ** element.decimals,
-            explorer: element.explorer,
-            getCurrentPrice: element.getCurrentPrice,
-            name: element.name,
-            type: 'sell',
-            ...discordData,
-          } as TransactionEvent);
+          if (parseInt(value, 10) / 10 ** element.decimals >= element.sellAmount) {
+            events.emit('whale-sell', {
+              hash: transactionHash,
+              amount: parseInt(value, 10) / 10 ** element.decimals,
+              explorer: element.explorer,
+              getCurrentPrice: element.getCurrentPrice,
+              name: element.name,
+              type: 'sell',
+              ...discordData,
+            } as TransactionEvent);
+          }
 
           return;
         }
