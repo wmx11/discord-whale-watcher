@@ -28,6 +28,6 @@ export const titano: Config = {
   decimals: 18,
   buyAmount: 1,
   sellAmount: 1,
-  mainChannelIds: [{ name: "Wayne's Server", id: '918902350150787105' }],
-  whaleChannelIds: [{ name: "Wayne's Server", id: '928398058012676179' }],
+  mainChannelIds: [],
+  whaleChannelIds: [{ name: 'Titano', id: '980559438341623809' }],
 };
