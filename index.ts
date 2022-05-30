@@ -1,6 +1,10 @@
 import 'dotenv/config';
 import { Client, Intents } from 'discord.js';
 import { AbiItem } from 'web3-utils';
+import { PrismaClient } from '@prisma/client';
+import { Contract } from 'web3-eth-contract';
+import { WebsocketProvider } from 'web3-providers-ws';
+import express, { Application } from 'express';
 import EventEmitter from 'events';
 import fs from 'fs';
 import Web3 from 'web3';
@@ -8,11 +12,12 @@ import Web3 from 'web3';
 import config from './src/config';
 import { Event } from './types/contract';
 import { TransactionEvent } from './types/events';
-import { Contract } from 'web3-eth-contract';
-import { WebsocketProvider } from 'web3-providers-ws';
 import postTransactionEvent from './src/utils/postTransactionEvent';
+import transactionsRoutes from './src/routes/transactions';
 
+const prisma: PrismaClient = new PrismaClient();
 const events: EventEmitter = new EventEmitter();
+const server: Application = express();
 
 (() => {
   if (!config || !config.length) {
@@ -62,6 +67,8 @@ const events: EventEmitter = new EventEmitter();
           returnValues: { from, to, value },
         } = event;
 
+        const amount: number = parseInt(value, 10) / 10 ** element.decimals;
+
         const isFeeCollection: boolean =
           from.toLowerCase() === element.exchangeAddress.toLowerCase() &&
           to.toLowerCase() === element.contractAddress.toLowerCase();
@@ -75,10 +82,10 @@ const events: EventEmitter = new EventEmitter();
           to.toLowerCase() === element.exchangeAddress.toLowerCase();
 
         if (!isFeeCollection && isBuy && element.buyAmount > 0) {
-          if (parseInt(value, 10) / 10 ** element.decimals >= element.buyAmount) {
+          if (amount >= element.buyAmount) {
             events.emit('whale-buy', {
               hash: transactionHash,
-              amount: parseInt(value, 10) / 10 ** element.decimals,
+              amount,
               explorer: element.explorer,
               getCurrentPrice: element.getCurrentPrice,
               name: element.name,
@@ -87,14 +94,23 @@ const events: EventEmitter = new EventEmitter();
             } as TransactionEvent);
           }
 
+          prisma.transactions.create({
+            data: {
+              name: element.name,
+              type: 1,
+              amount,
+              hash: transactionHash,
+            },
+          });
+
           return;
         }
 
         if (!isFeeCollection && isSell && element.sellAmount > 0) {
-          if (parseInt(value, 10) / 10 ** element.decimals >= element.sellAmount) {
+          if (amount >= element.sellAmount) {
             events.emit('whale-sell', {
               hash: transactionHash,
-              amount: parseInt(value, 10) / 10 ** element.decimals,
+              amount,
               explorer: element.explorer,
               getCurrentPrice: element.getCurrentPrice,
               name: element.name,
@@ -102,6 +118,15 @@ const events: EventEmitter = new EventEmitter();
               ...discordData,
             } as TransactionEvent);
           }
+
+          prisma.transactions.create({
+            data: {
+              name: element.name,
+              type: 0,
+              amount,
+              hash: transactionHash,
+            },
+          });
 
           return;
         }
@@ -126,4 +151,13 @@ const events: EventEmitter = new EventEmitter();
   });
 
   client.login(process.env.DISCORD_TOKEN);
+})();
+
+(() => {
+  server.use(express.json());
+  server.use(express.urlencoded({ extended: true }));
+
+  server.use('/transactions', transactionsRoutes);
+
+  server.listen(process.env.PORT, () => console.log('Server has started'));
 })();
