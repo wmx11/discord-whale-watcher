@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  mysql_t:
+    image: mysql
+    restart: always
+    ports:
+      - 3306:3306
+    expose:
+      - 3306
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: transactions
+      MYSQL_USER: transactions
+      MYSQL_PASSWORD: root
+    volumes:
+      - mysql:/var/lib/mysql
+
+volumes:
+  mysql:

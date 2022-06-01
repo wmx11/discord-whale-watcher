@@ -61,7 +61,7 @@ const server: Application = express();
           console.log(error);
         }
       })
-      .on('data', (event: Event) => {
+      .on('data', async (event: Event) => {
         const {
           transactionHash,
           returnValues: { from, to, value },
@@ -94,14 +94,19 @@ const server: Application = express();
             } as TransactionEvent);
           }
 
-          prisma.transactions.create({
+          const price = await element.getCurrentPrice();
+          const entry = await prisma.transactions.create({
             data: {
               name: element.name,
               type: 1,
               amount,
+              price,
               hash: transactionHash,
+              address: to,
             },
           });
+
+          console.log(entry);
 
           return;
         }
@@ -119,14 +124,19 @@ const server: Application = express();
             } as TransactionEvent);
           }
 
-          prisma.transactions.create({
+          const price = await element.getCurrentPrice();
+          const entry = await prisma.transactions.create({
             data: {
               name: element.name,
               type: 0,
               amount,
+              price,
               hash: transactionHash,
+              address: from,
             },
           });
+
+          console.log(entry);
 
           return;
         }
