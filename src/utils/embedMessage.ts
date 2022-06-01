@@ -17,7 +17,7 @@ const makeEmbeddedMessage = async (data: TransactionEvent): Promise<object> => {
     color: '#E50000',
     fields: [
       {
-        name: `Amount of ${data.name} ${data.type === 'sell' ? 'sold' : 'bought'}!`,
+        name: `Amount of ${data.name} ${data.type === 'sell' ? 'sold' : 'bought'}:`,
         value: data.amount.toLocaleString(),
       },
       {
