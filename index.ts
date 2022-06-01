@@ -1,10 +1,8 @@
 import 'dotenv/config';
 import { Client, Intents } from 'discord.js';
 import { AbiItem } from 'web3-utils';
-import { PrismaClient } from '@prisma/client';
 import { Contract } from 'web3-eth-contract';
 import { WebsocketProvider } from 'web3-providers-ws';
-import express, { Application } from 'express';
 import EventEmitter from 'events';
 import fs from 'fs';
 import Web3 from 'web3';
@@ -13,11 +11,10 @@ import config from './src/config';
 import { Event } from './types/contract';
 import { TransactionEvent } from './types/events';
 import postTransactionEvent from './src/utils/postTransactionEvent';
-import transactionsRoutes from './src/routes/transactions';
 
-const prisma: PrismaClient = new PrismaClient();
 const events: EventEmitter = new EventEmitter();
-const server: Application = express();
+
+const transactions: Map<string, TransactionEvent> = new Map();
 
 (() => {
   if (!config || !config.length) {
@@ -81,52 +78,65 @@ const server: Application = express();
           from.toLowerCase() !== element.contractAddress.toLowerCase() &&
           to.toLowerCase() === element.exchangeAddress.toLowerCase();
 
-        if (!isFeeCollection && isBuy && element.buyAmount > 0) {
-          if (amount >= element.buyAmount) {
-            events.emit('whale-buy', {
-              hash: transactionHash,
-              amount,
-              explorer: element.explorer,
-              getCurrentPrice: element.getCurrentPrice,
-              name: element.name,
-              type: 'buy',
-              ...discordData,
-            } as TransactionEvent);
+        const getTransactionEvent = (): TransactionEvent => {
+          const getType = () => {
+            if (!isFeeCollection && isBuy) {
+              return 'buy';
+            }
+
+            if (!isFeeCollection && isSell) {
+              return 'sell';
+            }
+
+            return 'fee';
+          };
+
+          return {
+            hash: transactionHash,
+            amount,
+            explorer: element.explorer,
+            getCurrentPrice: element.getCurrentPrice,
+            name: element.name,
+            type: getType(),
+            ...discordData,
+          };
+        };
+
+        const getTransactionEventAfterFees = (): TransactionEvent => {
+          const fee = transactions.get(transactionHash);
+          const transactionEvent = getTransactionEvent();
+
+          if (fee) {
+            if (fee.type !== 'fee') {
+              return transactionEvent;
+            }
+            transactionEvent.amount = transactionEvent.amount + fee.amount;
+            transactions.delete(transactionHash);
           }
 
-          prisma.transactions.create({
-            data: {
-              name: element.name,
-              type: 1,
-              amount,
-              hash: transactionHash,
-            },
-          });
+          return transactionEvent;
+        };
+
+        if (isFeeCollection && (!isBuy || !isSell)) {
+          transactions.set(transactionHash, getTransactionEvent());
+        }
+
+        if (!isFeeCollection && isBuy && element.buyAmount > 0) {
+          const transactionEvent = getTransactionEventAfterFees();
+
+          if (transactionEvent.amount >= element.buyAmount) {
+            events.emit('whale-buy', transactionEvent);
+          }
 
           return;
         }
 
         if (!isFeeCollection && isSell && element.sellAmount > 0) {
-          if (amount >= element.sellAmount) {
-            events.emit('whale-sell', {
-              hash: transactionHash,
-              amount,
-              explorer: element.explorer,
-              getCurrentPrice: element.getCurrentPrice,
-              name: element.name,
-              type: 'sell',
-              ...discordData,
-            } as TransactionEvent);
-          }
+          const transactionEvent = getTransactionEventAfterFees();
 
-          prisma.transactions.create({
-            data: {
-              name: element.name,
-              type: 0,
-              amount,
-              hash: transactionHash,
-            },
-          });
+          if (transactionEvent.amount >= element.sellAmount) {
+            events.emit('whale-sell', transactionEvent);
+          }
 
           return;
         }
@@ -151,13 +161,4 @@ const server: Application = express();
   });
 
   client.login(process.env.DISCORD_TOKEN);
-})();
-
-(() => {
-  server.use(express.json());
-  server.use(express.urlencoded({ extended: true }));
-
-  server.use('/transactions', transactionsRoutes);
-
-  server.listen(process.env.PORT, () => console.log('Server has started'));
 })();
