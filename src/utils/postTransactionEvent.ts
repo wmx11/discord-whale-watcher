@@ -31,7 +31,7 @@ const handleWhaleChannelMessage = async (
   try {
     if (channel !== null) {
       if (channel.isText()) {
-        channel.send({ content: '@everyone', embeds: [embeddedMessage] });
+        channel.send({ embeds: [embeddedMessage] });
       }
     }
   } catch (error) {
