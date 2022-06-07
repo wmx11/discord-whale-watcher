@@ -1,8 +1,11 @@
 import 'dotenv/config';
+import { PrismaClient, Transactions } from '@prisma/client';
 import { Client, Intents } from 'discord.js';
 import { AbiItem } from 'web3-utils';
 import { Contract } from 'web3-eth-contract';
 import { WebsocketProvider } from 'web3-providers-ws';
+import express, { Application } from 'express';
+import cors from 'cors';
 import EventEmitter from 'events';
 import fs from 'fs';
 import Web3 from 'web3';
@@ -11,10 +14,13 @@ import config from './src/config';
 import { Event } from './types/contract';
 import { TransactionEvent } from './types/events';
 import postTransactionEvent from './src/utils/postTransactionEvent';
+import transactionsRoutes from './src/routes/transactions';
 
 const events: EventEmitter = new EventEmitter();
 
 const transactions: Map<string, TransactionEvent> = new Map();
+
+const prisma: PrismaClient = new PrismaClient();
 
 (() => {
   if (!config || !config.length) {
@@ -78,6 +84,8 @@ const transactions: Map<string, TransactionEvent> = new Map();
           from.toLowerCase() !== element.contractAddress.toLowerCase() &&
           to.toLowerCase() === element.exchangeAddress.toLowerCase();
 
+        const isBurn: boolean = to.toLowerCase() === element.burnAddress.toLowerCase();
+
         const getTransactionEvent = (): TransactionEvent => {
           const getType = () => {
             if (!isFeeCollection && isBuy) {
@@ -86,6 +94,10 @@ const transactions: Map<string, TransactionEvent> = new Map();
 
             if (!isFeeCollection && isSell) {
               return 'sell';
+            }
+
+            if (!isFeeCollection && isBurn) {
+              return 'burn';
             }
 
             return 'fee';
@@ -116,6 +128,28 @@ const transactions: Map<string, TransactionEvent> = new Map();
 
           return transactionEvent;
         };
+
+        const addBurnTransaction = async (): Promise<void> => {
+          const transactionEvent = getTransactionEventAfterFees();
+          const price = await transactionEvent.getCurrentPrice();
+
+          const entry: Transactions = await prisma.transactions.create({
+            data: {
+              name: transactionEvent.name,
+              type: -1,
+              amount: transactionEvent.amount,
+              address: from,
+              hash: transactionEvent.hash,
+              price,
+            },
+          });
+
+          console.log(entry);
+        };
+
+        if (isBurn) {
+          addBurnTransaction();
+        }
 
         if (isFeeCollection && (!isBuy || !isSell)) {
           transactions.set(transactionHash, getTransactionEvent());
@@ -161,4 +195,19 @@ const transactions: Map<string, TransactionEvent> = new Map();
   });
 
   client.login(process.env.DISCORD_TOKEN);
+})();
+
+(() => {
+  const server: Application = express();
+  const port = process.env.PORT || 2500;
+
+  server.use(express.json());
+  server.use(express.urlencoded({ extended: true }));
+  server.use(cors());
+
+  server.use('/transactions', transactionsRoutes);
+
+  server.listen(port, () => {
+    console.log(`Transaction watcher listening on ${port}`);
+  });
 })();

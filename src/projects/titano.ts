@@ -7,6 +7,7 @@ export const titano: Config = {
   contractAddress: '0x4e3cABD3AD77420FF9031d19899594041C420aeE',
   caller: '0x6c957d7030fbac6e070c84b4370e3c8cb6e99cd7',
   exchangeAddress: '0x072856bC98e65ECaf8cA6412567e894617cC62c2',
+  burnAddress: '0x000000000000000000000000000000000000dead',
   abi: 'titano',
   name: 'Titano',
   getCurrentPrice: async (): Promise<number> => {

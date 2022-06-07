@@ -1,0 +1,20 @@
+version: '3.9'
+services:
+  mysql_tw:
+    image: mysql:latest
+    restart: always
+    container_name: mysql_tw
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: transactions
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    ports:
+      - 3307:3306
+    expose:
+      - 3307
+    volumes:
+      - mysql:/var/lib/mysql
+
+volumes:
+  mysql:

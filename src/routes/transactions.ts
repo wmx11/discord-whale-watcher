@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getBuys, getSells } from '../controllers/transactions';
+import { getBurns, getBuys, getSells } from '../controllers/transactions';
 
 const router: Router = Router();
 
@@ -55,6 +55,27 @@ router.get('/get/sells', async (req: Request, res: Response) => {
 
   try {
     const buys = await getSells(limit);
+
+    return res.status(200).json({
+      success: true,
+      data: buys,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      error: (error as object).toString(),
+    });
+  }
+});
+
+router.get('/get/burns', async (req: Request, res: Response) => {
+  const query = {
+    ...(req.query as { limit: string | undefined; today: string | undefined }),
+  };
+
+  try {
+    const buys = await getBurns(query);
 
     return res.status(200).json({
       success: true,

@@ -17,4 +17,5 @@ export type Config = {
   sellAmount: number;
   mainChannelIds: Channel[];
   whaleChannelIds: Channel[];
+  burnAddress: string;
 };
