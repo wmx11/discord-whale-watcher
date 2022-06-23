@@ -42,7 +42,7 @@ const prisma: PrismaClient = new PrismaClient();
       reconnect: {
         auto: true,
         delay: 5000, // ms
-        maxAttempts: 5,
+        maxAttempts: 10,
         onTimeout: false,
       },
     });
