@@ -15,6 +15,7 @@ import { Event } from './types/contract';
 import { TransactionEvent } from './types/events';
 import postTransactionEvent from './src/utils/postTransactionEvent';
 import transactionsRoutes from './src/routes/transactions';
+import logger from './logger';
 
 const events: EventEmitter = new EventEmitter();
 
@@ -27,14 +28,17 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
 
   const retry = (event: string | null): number | WebsocketProvider | null => {
     if (event) {
+      logger.error('Web3 disconnected or errored');
       console.log('Web3 disconnected or errored');
       retries++;
 
       if (retries > 5) {
+        logger.error('Exceeded number of 5 retries');
         console.log('Exceeded number of 5 retries');
         return setTimeout(refreshProvider, 5000);
       }
     } else {
+      logger.info('Reconnecting to the provider');
       console.log('Reconnecting to the provider');
       return refreshProvider(web3Obj, providerWs);
     }
@@ -67,6 +71,7 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
   web3Obj.setProvider(provider);
 
   console.log('New Web3 provider initiated');
+  logger.info('New Web3 provider initiated');
 
   return provider;
 };
@@ -77,25 +82,6 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
   }
 
   config.forEach((element) => {
-    // const ws: WebsocketProvider = new Web3.providers.WebsocketProvider(element.rpc, {
-    //   timeout: 30000, // ms
-    //   clientConfig: {
-    //     // Useful if requests are large
-    //     maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
-    //     maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
-
-    //     // Useful to keep a connection alive
-    //     keepalive: true,
-    //     keepaliveInterval: 60000, // ms
-    //   },
-    //   reconnect: {
-    //     auto: true,
-    //     delay: 5000, // ms
-    //     maxAttempts: 10,
-    //     onTimeout: false,
-    //   },
-    // });
-
     const web3: Web3 = new Web3();
 
     refreshProvider(web3, element.rpc);
@@ -112,6 +98,7 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
     contract.events
       .Transfer({}, (error: never) => {
         if (error) {
+          logger.error(error);
           console.log(error);
         }
       })
@@ -184,7 +171,7 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
           const transactionEvent = getTransactionEventAfterFees();
           const price = await transactionEvent.getCurrentPrice();
 
-          const entry: Transactions = await prisma.transactions.create({
+          await prisma.transactions.create({
             data: {
               name: transactionEvent.name,
               type: -1,
@@ -194,8 +181,6 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
               price,
             },
           });
-
-          console.log(entry);
         };
 
         if (isBurn) {
@@ -228,6 +213,7 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
       })
       .on('error', (error: never) => {
         if (error) {
+          logger.error(error);
           console.log(error);
         }
       });
@@ -241,6 +227,8 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
 
   client.once('ready', async () => {
     console.log('Whale Watcher running');
+    logger.info('Whale watcher discord bot running');
+
     events.on('whale-buy', async (data: TransactionEvent) => postTransactionEvent(client, data));
     events.on('whale-sell', async (data: TransactionEvent) => postTransactionEvent(client, data));
   });
