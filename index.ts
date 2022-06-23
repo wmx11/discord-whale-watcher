@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, Transactions } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { Client, Intents } from 'discord.js';
 import { AbiItem } from 'web3-utils';
 import { Contract } from 'web3-eth-contract';
@@ -28,18 +28,16 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
 
   const retry = (event: string | null): number | WebsocketProvider | null => {
     if (event) {
-      logger.error('Web3 disconnected or errored');
-      console.log('Web3 disconnected or errored');
       retries++;
+      refreshProvider(web3Obj, providerWs);
+      logger.error('Web3 disconnected or errored');
 
       if (retries > 5) {
         logger.error('Exceeded number of 5 retries');
-        console.log('Exceeded number of 5 retries');
         return setTimeout(refreshProvider, 5000);
       }
     } else {
       logger.info('Reconnecting to the provider');
-      console.log('Reconnecting to the provider');
       return refreshProvider(web3Obj, providerWs);
     }
 
@@ -70,7 +68,6 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
 
   web3Obj.setProvider(provider);
 
-  console.log('New Web3 provider initiated');
   logger.info('New Web3 provider initiated');
 
   return provider;

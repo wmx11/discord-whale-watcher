@@ -1,7 +1,9 @@
-import winston from 'winston';
+import { createLogger, format, transports, Logger } from 'winston';
+const { combine, timestamp, prettyPrint } = format;
 
-const logger: winston.Logger = winston.createLogger({
-  transports: [new winston.transports.Console(), new winston.transports.File({ filename: 'combined.log' })],
+const logger: Logger = createLogger({
+  format: combine(timestamp(), prettyPrint()),
+  transports: [new transports.Console(), new transports.File({ filename: 'combined.log' })],
 });
 
 export default logger;
