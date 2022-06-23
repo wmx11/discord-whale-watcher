@@ -22,32 +22,83 @@ const transactions: Map<string, TransactionEvent> = new Map();
 
 const prisma: PrismaClient = new PrismaClient();
 
+const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider => {
+  let retries = 0;
+
+  const retry = (event: string | null): number | WebsocketProvider | null => {
+    if (event) {
+      console.log('Web3 disconnected or errored');
+      retries++;
+
+      if (retries > 5) {
+        console.log('Exceeded number of 5 retries');
+        return setTimeout(refreshProvider, 5000);
+      }
+    } else {
+      console.log('Reconnecting to the provider');
+      return refreshProvider(web3Obj, providerWs);
+    }
+
+    return null;
+  };
+
+  const provider: WebsocketProvider = new Web3.providers.WebsocketProvider(providerWs, {
+    timeout: 30000, // ms
+    clientConfig: {
+      // Useful if requests are large
+      maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
+      maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
+
+      // Useful to keep a connection alive
+      keepalive: true,
+      keepaliveInterval: 60000, // ms
+    },
+    reconnect: {
+      auto: true,
+      delay: 5000, // ms
+      maxAttempts: 10,
+      onTimeout: false,
+    },
+  });
+
+  provider.on('end', retry as () => unknown | void);
+  provider.on('error', retry as () => unknown | void);
+
+  web3Obj.setProvider(provider);
+
+  console.log('New Web3 provider initiated');
+
+  return provider;
+};
+
 (() => {
   if (!config || !config.length) {
     return;
   }
 
   config.forEach((element) => {
-    const ws: WebsocketProvider = new Web3.providers.WebsocketProvider(element.rpc, {
-      timeout: 30000, // ms
-      clientConfig: {
-        // Useful if requests are large
-        maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
-        maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
+    // const ws: WebsocketProvider = new Web3.providers.WebsocketProvider(element.rpc, {
+    //   timeout: 30000, // ms
+    //   clientConfig: {
+    //     // Useful if requests are large
+    //     maxReceivedFrameSize: 100000000, // bytes - default: 1MiB
+    //     maxReceivedMessageSize: 100000000, // bytes - default: 8MiB
 
-        // Useful to keep a connection alive
-        keepalive: true,
-        keepaliveInterval: 60000, // ms
-      },
-      reconnect: {
-        auto: true,
-        delay: 5000, // ms
-        maxAttempts: 10,
-        onTimeout: false,
-      },
-    });
+    //     // Useful to keep a connection alive
+    //     keepalive: true,
+    //     keepaliveInterval: 60000, // ms
+    //   },
+    //   reconnect: {
+    //     auto: true,
+    //     delay: 5000, // ms
+    //     maxAttempts: 10,
+    //     onTimeout: false,
+    //   },
+    // });
 
-    const web3: Web3 = new Web3(ws);
+    const web3: Web3 = new Web3();
+
+    refreshProvider(web3, element.rpc);
 
     const ABI: unknown = fs.readFileSync(`./src/abi/${element.abi}.json`, 'utf-8');
 
