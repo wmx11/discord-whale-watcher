@@ -168,6 +168,16 @@ const refreshProvider = (web3Obj: Web3, providerWs: string): WebsocketProvider =
           const transactionEvent = getTransactionEventAfterFees();
           const price = await transactionEvent.getCurrentPrice();
 
+          const existingTransaction = await prisma.transactions.findFirst({
+            where: {
+              hash: transactionEvent.hash
+            }
+          });
+
+          if (existingTransaction) {
+            return;
+          }
+
           await prisma.transactions.create({
             data: {
               name: transactionEvent.name,
